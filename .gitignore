@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+
+# Data (lives on Hugging Face: cexplorers/firms-hotspots)
+data/
+
+# macOS
+.DS_Store
+.env

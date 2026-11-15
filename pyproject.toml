@@ -1,0 +1,34 @@
+[project]
+name = "nasa-curious-explorers"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "datasets>=5.2.0",
+    "dotenv>=0.9.9",
+    "httpx>=0.28.1",
+    "huggingface-hub>=2.4.0",
+    "jupyter>=1.1.1",
+    "polars>=2.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pillow>=13.0.0",
+    "pytest>=9.2.0",
+]
+
+[project.scripts]
+firms = "nasa_curious_explorers.ingest:main"
+harmonize = "nasa_curious_explorers.harmonize:main"
+export-web = "nasa_curious_explorers.export_web:main"
+country-shapes = "nasa_curious_explorers.country_shapes:main"
+export-points = "nasa_curious_explorers.export_points:main"
+fetch-tiles = "nasa_curious_explorers.fetch_tiles:main"
+fetch-web-data = "nasa_curious_explorers.web_data:fetch"
+upload-web-data = "nasa_curious_explorers.web_data:upload"
+
+[build-system]
+requires = ["uv_build>=0.10,<0.11"]
+build-backend = "uv_build"

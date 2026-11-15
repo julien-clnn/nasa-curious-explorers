@@ -1,0 +1,393 @@
+<title>Harmonisation MODIS → VIIRS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column (~760px) with wide figures breaking out to ~1080px; sections follow the pipeline order. */
+:root{
+  --bg:#f6f7f8; --surface:#ffffff; --fg:#17202a; --muted:#5b6672; --line:#dfe3e7;
+  --modis:#5a7aa3; --viirs:#e08a1e; --harm:#c23b22; --base:#8a949e; --good:#2f7d4f; --warn:#b76e00;
+  --band-cal:rgba(90,122,163,.10); --band-test:rgba(194,59,34,.08);
+  --f-display:"Archivo",system-ui,sans-serif; --f-body:"IBM Plex Sans",system-ui,sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11161c; --surface:#18202a; --fg:#e6eaee; --muted:#9aa5b1; --line:#2a3542;
+  --modis:#86a5cf; --viirs:#f2a540; --harm:#ff6a4d; --base:#7d8893; --good:#5cc08a; --warn:#e7a43c;
+  --band-cal:rgba(134,165,207,.12); --band-test:rgba(255,106,77,.10); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11161c; --surface:#18202a; --fg:#e6eaee; --muted:#9aa5b1; --line:#2a3542;
+  --modis:#86a5cf; --viirs:#f2a540; --harm:#ff6a4d; --base:#7d8893; --good:#5cc08a; --warn:#e7a43c;
+  --band-cal:rgba(134,165,207,.12); --band-test:rgba(255,106,77,.10); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 var(--f-body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 80px}
+main{max-width:1080px;margin:0 auto;display:grid;gap:64px}
+section{display:grid;gap:18px;min-width:0}
+.col{max-width:760px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(30px,5vw,46px);font-weight:800;letter-spacing:-.01em}
+h2{font-size:26px;font-weight:700}
+h3{font-size:17px;font-weight:700}
+p{margin:0}
+.eyebrow{font:500 12px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:18px;color:var(--muted);max-width:68ch}
+.mono,code{font-family:var(--f-mono);font-size:.9em}
+code{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+.muted{color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;display:grid;gap:4px;align-content:start}
+.kpi .v{font:700 32px/1.1 var(--f-display);font-variant-numeric:tabular-nums}
+.kpi .v small{font-size:15px;color:var(--muted);font-weight:500}
+.kpi .l{font-size:14px;color:var(--muted)}
+.kpi .vs{font:13px var(--f-mono);color:var(--muted)}
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px;display:grid;gap:12px;min-width:0}
+.fig .cap{font-size:14px;color:var(--muted)}
+.chart{position:relative;height:340px;min-width:0}
+.chart.tall{height:420px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:14px;height:3px;border-radius:2px;display:inline-block}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{font:500 13px var(--f-body);background:transparent;color:var(--fg);border:0;padding:6px 12px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.seg button:focus-visible,select:focus-visible{outline:2px solid var(--harm);outline-offset:2px}
+select{font:14px var(--f-body);padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+.steps{display:grid;gap:14px;counter-reset:s;list-style:none;padding:0;margin:0}
+.steps li{display:grid;grid-template-columns:40px 1fr;gap:4px 14px;counter-increment:s}
+.steps li::before{content:counter(s);grid-column:1;grid-row:1 / span 2;font:700 15px/1 var(--f-mono);color:var(--harm);border:1.5px solid var(--harm);border-radius:50%;width:32px;height:32px;display:grid;place-items:center}
+.steps li>*{min-width:0;grid-column:2}
+.formula{font:500 17px/1.5 var(--f-mono);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--harm);padding:14px 16px;border-radius:6px;overflow-x:auto}
+.chain{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font:14px var(--f-mono)}
+.chain .n{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 10px}
+.chain .a{color:var(--muted)}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+thead th{font:500 12px var(--f-mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+tbody tr:last-child td{border-bottom:0}
+.better{color:var(--good);font-weight:600}
+.pill{display:inline-block;font:500 12px var(--f-mono);padding:2px 8px;border-radius:999px;border:1px solid currentColor}
+.pill.ok{color:var(--good)} .pill.w{color:var(--warn)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.two>*{min-width:0}
+ul.plain{margin:0;padding-left:20px;display:grid;gap:8px}
+.files{display:grid;gap:0}
+.files div{display:grid;grid-template-columns:minmax(220px,auto) 1fr;gap:4px 16px;padding:10px 0;border-bottom:1px solid var(--line)}
+.files div:last-child{border-bottom:0}
+@media (max-width:560px){.files div{grid-template-columns:1fr}.chart{height:280px}.chart.tall{height:340px}}
+pre{font:13px/1.5 var(--f-mono);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px;overflow-x:auto;margin:0}
+</style>
+
+<main>
+<header class="col" style="display:grid;gap:14px">
+  <div class="eyebrow">Space Apps 2026 · défi CONAE · calendrier des feux</div>
+  <h1>Harmonisation MODIS → VIIRS</h1>
+  <p class="lede">Une seule série de hotspots de 2000 à 2025, exprimée en « hotspots équivalent VIIRS ». Cette page explique comment le modèle convertit MODIS, et ce qu'il vaut sur des années qu'il n'a jamais vues.</p>
+  <p class="muted" style="font-size:14px">Données FIRMS (feux de végétation, type 0), 548 M détections. Facteurs calés sur 2013–2019, testés sur 2020–2025 et sur 2012. α = <span id="alpha"></span>, plafond ×<span id="cap"></span>, grille <span id="cell"></span>°.</p>
+</header>
+
+<section>
+  <div class="kpis" id="kpis"></div>
+</section>
+
+<section>
+  <div class="col" style="display:grid;gap:10px">
+    <div class="eyebrow">Le problème</div>
+    <h2>VIIRS voit environ 4,4 fois plus de feux que MODIS</h2>
+    <p>VIIRS a des pixels de 375 m contre 1 km pour MODIS : il détecte beaucoup plus de petits feux. Mettre bout à bout les deux séries brutes crée une fausse explosion des feux en 2012. La courbe harmonisée garde le niveau VIIRS et prolonge l'historique MODIS en arrière.</p>
+  </div>
+  <div class="fig">
+    <div class="row">
+      <div class="legend">
+        <span><i class="sw" style="background:var(--modis)"></i>MODIS brut (Terra + Aqua)</span>
+        <span><i class="sw" style="background:var(--viirs)"></i>VIIRS S-NPP brut</span>
+        <span><i class="sw" style="background:var(--harm);height:4px"></i>Harmonisé</span>
+      </div>
+      <div class="seg" role="group" aria-label="Échelle">
+        <button id="wm-m" aria-pressed="true">Mensuel</button><button id="wm-y" aria-pressed="false">Annuel</button>
+      </div>
+    </div>
+    <div class="chart"><canvas id="world"></canvas></div>
+    <p class="cap">Monde, hotspots par mois. Bande bleue : années de calage (2013–2019). Bande rouge : années de test (2020–2025), jamais utilisées pour caler les facteurs. Après 2012, la courbe harmonisée recouvre VIIRS : elle vaut VIIRS observé, sauf les jours de panne.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col" style="display:grid;gap:14px">
+    <div class="eyebrow">La méthode</div>
+    <h2>Cinq étapes, du hotspot brut à la série harmonisée</h2>
+    <ol class="steps">
+      <li><h3>Agréger</h3><p>On compte les hotspots par cellule de 0,5°, par jour, par pays et par satellite (Terra, Aqua, Suomi-NPP, NOAA-20). Seuls les feux de végétation sont gardés.</p></li>
+      <li><h3>Repérer les pannes</h3><p>Un satellite est « en panne » un jour où son total mondial tombe sous 50 % de sa médiane glissante sur 31 jours. Ces jours sont exclus du calage et du test. <span id="nout"></span> pannes de 3 jours ou plus ont été trouvées.</p></li>
+      <li><h3>Caler un facteur k par lieu et par mois</h3><p>Sur les jours où les deux capteurs fonctionnent (2013–2019), k = hotspots VIIRS / hotspots MODIS. Un ratio calculé sur peu de feux est bruité, donc chaque niveau est tiré vers son parent :</p>
+        <div class="formula">k = (V + α · k<sub>parent</sub>) / (M + α)</div>
+        <p class="muted" style="font-size:15px">V et M : hotspots VIIRS et MODIS cumulés sur 2013–2019. Avec α = 100, une cellule qui a 100 hotspots MODIS prend un facteur à mi-chemin entre son propre ratio et celui du parent. Ensuite k est borné entre k<sub>parent</sub>/4 et k<sub>parent</sub>×4, pour qu'une détection MODIS isolée ne devienne pas un pic.</p>
+        <div class="chain" aria-label="Chaîne de rétrécissement"><span class="n">Monde</span><span class="a">→</span><span class="n">Pays</span><span class="a">→</span><span class="n">Pays × mois</span><span class="a">→</span><span class="n">Cellule 1° × mois</span></div>
+      </li>
+      <li><h3>Appliquer, avec relais entre satellites</h3><p>Chaque jour prend la meilleure source disponible : Suomi-NPP tel quel ; sinon NOAA-20 × k ; sinon (Terra + Aqua) × k ; sinon Terra seul ou Aqua seul × k. Avant 2012, c'est donc MODIS × k. Un facteur est calé pour chaque source (<span id="nf"></span> facteurs au total). Si aucun satellite ne livre, la valeur est inconnue, pas zéro.</p></li>
+      <li><h3>Valider sur des années jamais vues</h3><p>On convertit MODIS en VIIRS sur 2020–2025 (et sur 2012, avant le calage), puis on compare au VIIRS réellement observé. On compare aussi à une méthode simple : un seul ratio mondial (k = <span id="kw"></span>).</p></li>
+    </ol>
+  </div>
+  <div class="two">
+    <div class="fig">
+      <h3>Le facteur varie avec la saison</h3>
+      <div class="legend" id="mf-legend"></div>
+      <div class="chart" style="height:260px"><canvas id="mf"></canvas></div>
+      <p class="cap">k pays × mois (MODIS → VIIRS). Un ratio mondial unique ignorerait ces écarts.</p>
+    </div>
+    <div class="fig">
+      <h3>Et selon le pays</h3>
+      <div class="chart" style="height:260px"><canvas id="cf"></canvas></div>
+      <p class="cap">k pays, pour les 15 pays qui brûlent le plus. Ligne pointillée : ratio mondial.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col" style="display:grid;gap:10px">
+    <div class="eyebrow">Les résultats</div>
+    <h2>Sur 2020–2025, l'erreur est divisée par deux par rapport au ratio mondial</h2>
+    <p>Erreur absolue médiane entre le VIIRS prédit depuis MODIS et le VIIRS observé. Seules les cases avec au moins 100 hotspots observés comptent. « Pondérée » donne plus de poids aux grosses cases.</p>
+  </div>
+  <div class="tw"><table id="scores"></table></div>
+
+  <div class="fig">
+    <div class="row">
+      <h3>Pays × mois : prédit contre observé (2020–2025)</h3>
+      <div class="seg" role="group" aria-label="Méthode">
+        <button id="sc-h" aria-pressed="true">Notre méthode</button><button id="sc-b" aria-pressed="false">Ratio mondial</button>
+      </div>
+    </div>
+    <div class="chart tall"><canvas id="scatter"></canvas></div>
+    <p class="cap" id="sc-cap"></p>
+  </div>
+
+  <div class="two">
+    <div class="fig">
+      <h3>Marge d'erreur selon la taille</h3>
+      <div class="tw" style="border:0"><table id="bands"></table></div>
+      <p class="cap">Rapport observé / prédit pour un pays-mois. Lecture : quand on prédit autour de 1 000 hotspots, 80 % des cas tombent entre p10 et p90. Sous 100 hotspots, la conversion est très incertaine.</p>
+    </div>
+    <div class="fig">
+      <h3>Les anomalies sont les mêmes</h3>
+      <div class="kpis" id="anom" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))"></div>
+      <p class="cap">Le calendrier sert à repérer les mois anormaux. On compare chaque pays-mois à sa normale saisonnière, avec MODIS converti puis avec VIIRS observé.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col" style="display:grid;gap:10px">
+    <div class="eyebrow">Exemple par pays</div>
+    <h2>La série harmonisée, pays par pays</h2>
+  </div>
+  <div class="fig">
+    <div class="row">
+      <div class="legend">
+        <span><i class="sw" style="background:var(--modis)"></i>MODIS brut</span>
+        <span><i class="sw" style="background:var(--viirs)"></i>VIIRS S-NPP brut</span>
+        <span><i class="sw" style="background:var(--harm);height:4px"></i>Harmonisé</span>
+      </div>
+      <label class="row" style="gap:8px;justify-content:flex-start"><span class="muted" style="font-size:14px">Pays</span><select id="country"></select></label>
+    </div>
+    <div class="chart"><canvas id="annual"></canvas></div>
+    <p class="cap">Hotspots par an. 2000 et 2025 sont incomplets (début de Terra en novembre 2000).</p>
+  </div>
+</section>
+
+<section class="col">
+  <div class="eyebrow">Limites connues</div>
+  <h2>Ce qu'il faut garder en tête</h2>
+  <ul class="plain">
+    <li><b>Biais récent de −4 %.</b> Sur 2020–2025, MODIS converti sous-estime VIIRS de 4 %. Terra dérive sur son orbite depuis 2020 : seul, il sous-estime de 13 %. Aqua seul reste à −1 %.</li>
+    <li><b>Petits nombres.</b> Un pays-mois prédit à moins de 100 hotspots peut valoir de 0,45 à 2,8 fois la prédiction (p10–p90). Les cellules à 0,5° sont moins fiables que les pays.</li>
+    <li><b>Pannes.</b> Elles sont comblées par la source suivante. Le pire cas est la panne S-NPP de 15 jours en 2022, relayée par NOAA-20 (erreur 0,9 %).</li>
+    <li><b>Périmètre.</b> Pays seulement (pas encore de provinces argentines), données jusqu'à fin 2025.</li>
+  </ul>
+  <div class="tw" style="margin-top:6px"><table id="outages"></table></div>
+</section>
+
+<section class="col">
+  <div class="eyebrow">Les fichiers</div>
+  <h2>Où trouver les données</h2>
+  <p>Les tableaux sont dans le dossier <code>results/</code> du dépôt (branche <code>harmonization</code>). Ils s'ouvrent dans un tableur.</p>
+  <div class="files">
+    <div><code>world_monthly.csv</code><span>Monde par mois : MODIS brut, VIIRS S-NPP brut, NOAA-20 brut, harmonisé.</span></div>
+    <div><code>country_monthly.csv</code><span>Même chose par pays et par mois.</span></div>
+    <div><code>country_factors.csv</code><span>k par pays, avec les hotspots MODIS et VIIRS de 2013–2019 qui l'ont produit.</span></div>
+    <div><code>country_month_factors.csv</code><span>k par pays et par mois de l'année.</span></div>
+    <div><code>holdout_country_month.csv</code><span>Test 2020–2025 : VIIRS prédit (notre méthode et ratio mondial) et observé, par pays-mois.</span></div>
+    <div><code>scores.csv</code><span>Toutes les erreurs : par source (MODIS, Terra, Aqua, NOAA-20), par niveau, test 2012 et baseline.</span></div>
+    <div><code>outages.csv</code><span>Les pannes détectées, satellite par satellite.</span></div>
+  </div>
+  <p class="muted" style="font-size:14px">Pour tout régénérer depuis les données brutes :</p>
+  <pre>uv run harmonize --skip-aggregate
+uv run python scripts/export_results.py</pre>
+  <p class="muted" style="font-size:14px">Le code de la méthode est dans <code>src/nasa_curious_explorers/harmonize.py</code>.</p>
+</section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const D = __DATA__;
+const V = D.val;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = n => n == null ? '–' : Math.round(n).toLocaleString('fr-FR');
+const pct = n => n.toLocaleString('fr-FR', {maximumFractionDigits:1}) + ' %';
+const $ = id => document.getElementById(id);
+
+$('alpha').textContent = V.alpha; $('cap').textContent = V.k_cap; $('cell').textContent = String(V.cell_deg).replace('.', ',');
+$('kw').textContent = V.predictors.modis.k_world.toLocaleString('fr-FR');
+$('nout').textContent = D.out.length;
+$('nf').textContent = '≈ 600 000';
+
+const H = V.predictors.modis.holdout, B = V.baseline_single_world_ratio, J = V.junction_2012, A = V.anomaly_agreement;
+$('kpis').innerHTML = [
+  [pct(H.country_month.median_abs_error_pct), 'erreur médiane par pays-mois, 2020–2025', 'ratio mondial : ' + pct(B.country_month.median_abs_error_pct)],
+  [pct(H.world_month.median_abs_error_pct), 'erreur médiane monde-mois, 2020–2025', 'ratio mondial : ' + pct(B.world_month.median_abs_error_pct)],
+  [pct(J.world_month.median_abs_error_pct), 'erreur monde-mois sur 2012, la jonction', 'pays-mois : ' + pct(J.country_month.median_abs_error_pct)],
+  [A.spearman.toLocaleString('fr-FR'), 'corrélation des anomalies (Spearman)', pct(A.unusual_months_also_flagged_pct) + ' des mois anormaux retrouvés'],
+].map(([v,l,s]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div><div class="vs">${s}</div></div>`).join('');
+
+// ---------- scores table
+const L = {world_month:'Monde × mois', country_year:'Pays × année', country_month:'Pays × mois', cell_month:'Cellule 1° × mois'};
+const lv = ['world_month','country_year','country_month','cell_month'];
+let t = '<thead><tr><th>Niveau</th><th>Cases</th><th>Notre méthode</th><th>Ratio mondial</th><th>Pondérée</th><th>Biais</th><th>Test 2012</th></tr></thead><tbody>';
+for (const k of lv) {
+  const h = H[k], b = B[k], j = J[k];
+  t += `<tr><td>${L[k]}</td><td>${fmt(h.n)}</td><td class="better">${pct(h.median_abs_error_pct)}</td><td>${pct(b.median_abs_error_pct)}</td><td>${pct(h.weighted_abs_error_pct)}</td><td>${h.bias_pct > 0 ? '+' : ''}${pct(h.bias_pct)}</td><td>${pct(j.median_abs_error_pct)}</td></tr>`;
+}
+t += '</tbody>';
+const P = V.predictors, PN = {modis:'Terra + Aqua', terra:'Terra seul', aqua:'Aqua seul', n20:'NOAA-20 (VIIRS)'};
+t += '<thead><tr><th>Par source → S-NPP</th><th>k monde</th><th>Monde × mois</th><th>Pays × mois</th><th>Cellule × mois</th><th>Biais</th><th>Test</th></tr></thead><tbody>';
+for (const p of ['modis','aqua','terra','n20']) {
+  const h = P[p].holdout;
+  t += `<tr><td>${PN[p]}</td><td>${P[p].k_world.toLocaleString('fr-FR')}</td><td>${pct(h.world_month.median_abs_error_pct)}</td><td>${pct(h.country_month.median_abs_error_pct)}</td><td>${pct(h.cell_month.median_abs_error_pct)}</td><td>${h.world_month.bias_pct > 0 ? '+' : ''}${pct(h.world_month.bias_pct)}</td><td>${P[p].holdout_years.join('–')}</td></tr>`;
+}
+$('scores').innerHTML = t + '</tbody>';
+
+// ---------- bands
+$('bands').innerHTML = '<thead><tr><th>Prédit ≥</th><th>Cas</th><th>p10</th><th>médiane</th><th>p90</th></tr></thead><tbody>' +
+  V.error_bands_country_month.map(b => `<tr><td>${fmt(b.predicted_from)}</td><td>${fmt(b.n)}</td><td>×${b.p10.toLocaleString('fr-FR')}</td><td>×${b.p50.toLocaleString('fr-FR')}</td><td>×${b.p90.toLocaleString('fr-FR')}</td></tr>`).join('') + '</tbody>';
+
+$('anom').innerHTML = [
+  [A.spearman.toLocaleString('fr-FR'), 'Spearman'],
+  [pct(A.same_class_pct), 'même classe (bas / normal / haut / exceptionnel)'],
+  [pct(A.unusual_months_also_flagged_pct), `des ${fmt(A.unusual_months)} mois anormaux aussi signalés`],
+].map(([v,l]) => `<div class="kpi"><div class="v" style="font-size:26px">${v}</div><div class="l">${l}</div></div>`).join('');
+
+// ---------- outages
+const SN = {terra:'Terra', aqua:'Aqua', snpp:'Suomi-NPP', n20:'NOAA-20'};
+$('outages').innerHTML = '<thead><tr><th>Satellite</th><th>Début</th><th>Fin</th><th>Jours</th></tr></thead><tbody>' +
+  D.out.map(o => `<tr><td>${SN[o.satellite]}</td><td class="mono">${o.start}</td><td class="mono">${o.end}</td><td>${o.days}</td></tr>`).join('') + '</tbody>';
+
+// ---------- charts
+const charts = [];
+function base(extra = {}) {
+  const fg = css('--muted'), grid = css('--line');
+  return Object.assign({
+    responsive:true, maintainAspectRatio:false, animation:false,
+    interaction:{mode:'index', intersect:false},
+    plugins:{legend:{display:false}, tooltip:{callbacks:{label:c => `${c.dataset.label} : ${fmt(c.parsed.y)}`}}},
+    scales:{
+      x:{ticks:{color:fg, maxRotation:0, autoSkip:true, font:{family:'IBM Plex Mono', size:11}}, grid:{display:false}, border:{color:grid}},
+      y:{ticks:{color:fg, font:{family:'IBM Plex Mono', size:11}, callback:v => v >= 1e6 ? (v/1e6).toLocaleString('fr-FR') + ' M' : v >= 1e3 ? (v/1e3).toLocaleString('fr-FR') + ' k' : v}, grid:{color:grid}, border:{display:false}, beginAtZero:true}
+    }
+  }, extra);
+}
+const bands = {id:'bands', beforeDatasetsDraw(c, _, o) {
+  if (!o || !o.ranges) return; const {ctx, chartArea:a, scales:{x}} = c;
+  for (const [i0, i1, col] of o.ranges) {
+    const l = x.getPixelForValue(i0) - (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2, r = x.getPixelForValue(i1) + (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2;
+    ctx.save(); ctx.fillStyle = css(col); ctx.fillRect(Math.max(l, a.left), a.top, Math.min(r, a.right) - Math.max(l, a.left), a.bottom - a.top); ctx.restore();
+  }
+}};
+Chart.register(bands);
+
+function line(label, data, col, w = 1.5, extra = {}) {
+  return Object.assign({label, data, borderColor:css(col), backgroundColor:css(col), borderWidth:w, pointRadius:0, tension:0, spanGaps:false}, extra);
+}
+
+// world
+const W = D.world;
+function worldData(mode) {
+  if (mode === 'm') {
+    const lab = W.y.map((y, i) => `${y}-${String(W.m[i]).padStart(2, '0')}`);
+    const z = a => a.map((v, i) => (W.y[i] < 2012 || (W.y[i] === 2012 && W.m[i] === 1)) && v === 0 ? null : v);
+    const i = (y, m) => lab.indexOf(`${y}-${String(m).padStart(2, '0')}`);
+    return {lab, modis:W.modis, viirs:z(W.viirs), h:W.h, ranges:[[i(2013,1), i(2019,12), '--band-cal'], [i(2020,1), i(2025,12), '--band-test']]};
+  }
+  const ys = [...new Set(W.y)], s = a => ys.map(y => a.reduce((t, v, i) => t + (W.y[i] === y ? v : 0), 0));
+  const v = s(W.viirs).map(x => x || null);
+  return {lab:ys.map(String), modis:s(W.modis), viirs:v, h:s(W.h), ranges:[[ys.indexOf(2013), ys.indexOf(2019), '--band-cal'], [ys.indexOf(2020), ys.indexOf(2025), '--band-test']]};
+}
+let wmode = 'm', wChart;
+function drawWorld() {
+  const d = worldData(wmode); wChart && wChart.destroy();
+  const o = base(); o.plugins.bands = {ranges:d.ranges};
+  o.scales.x.ticks.callback = function(v) { const l = this.getLabelForValue(v); return wmode === 'm' ? (l.endsWith('-01') && +l.slice(0,4) % 5 === 0 ? l.slice(0,4) : null) : (+l % 5 === 0 ? l : null); };
+  o.scales.x.ticks.autoSkip = false;
+  wChart = new Chart($('world'), {type:'line', data:{labels:d.lab, datasets:[
+    line('Harmonisé', d.h, '--harm', 2.2), line('VIIRS S-NPP brut', d.viirs, '--viirs', 1.3), line('MODIS brut', d.modis, '--modis', 1.3)]}, options:o});
+}
+for (const [id, m] of [['wm-m','m'], ['wm-y','y']]) $(id).onclick = () => { wmode = m; $('wm-m').setAttribute('aria-pressed', m === 'm'); $('wm-y').setAttribute('aria-pressed', m === 'y'); drawWorld(); };
+
+// month factors
+const MN = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
+const MFC = {Argentina:['Argentine','--harm'], Brazil:['Brésil','--viirs'], Australia:['Australie','--modis']};
+$('mf-legend').innerHTML = Object.values(MFC).map(([n, c]) => `<span><i class="sw" style="background:var(${c})"></i>${n}</span>`).join('');
+function drawMF() {
+  const o = base(); o.scales.y.beginAtZero = false; o.scales.y.ticks.callback = v => v.toLocaleString('fr-FR');
+  o.plugins.tooltip.callbacks.label = c => `${c.dataset.label} : k = ${c.parsed.y.toLocaleString('fr-FR')}`;
+  return new Chart($('mf'), {type:'line', data:{labels:MN, datasets:Object.entries(MFC).map(([k, [n, c]]) => line(n, D.mf[k], c, 2, {pointRadius:2.5}))}, options:o});
+}
+// country factors
+function drawCF() {
+  const o = base({indexAxis:'y'}); const kw = V.predictors.modis.k_world;
+  o.scales.x.beginAtZero = true; o.scales.x.grid = {color:css('--line')}; o.scales.y.grid = {display:false};
+  o.scales.y.ticks.autoSkip = false; o.scales.y.ticks.font = {family:'IBM Plex Sans', size:11};
+  o.scales.y.ticks.callback = function(v) { return this.getLabelForValue(v).replace(/_/g, ' ').replace('Democratic Republic of the Congo', 'RD Congo').replace('Central African Republic', 'Centrafrique').replace('Russian Federation', 'Russie'); };
+  o.plugins.tooltip.callbacks.label = c => `k = ${c.parsed.x.toLocaleString('fr-FR')}`;
+  const ref = {id:'ref', afterDatasetsDraw(c) { const {ctx, chartArea:a, scales:{x}} = c; const px = x.getPixelForValue(kw); ctx.save(); ctx.setLineDash([4,4]); ctx.strokeStyle = css('--fg'); ctx.beginPath(); ctx.moveTo(px, a.top); ctx.lineTo(px, a.bottom); ctx.stroke(); ctx.restore(); }};
+  return new Chart($('cf'), {type:'bar', data:{labels:D.cf.country, datasets:[{label:'k', data:D.cf.k_country, backgroundColor:css('--harm'), borderRadius:2, barPercentage:.75}]}, options:o, plugins:[ref]});
+}
+
+// scatter
+let smode = 'h', sChart;
+function drawScatter() {
+  sChart && sChart.destroy();
+  const pr = smode === 'h' ? D.sc.p : D.sc.b, col = smode === 'h' ? '--harm' : '--base';
+  const pts = D.sc.o.map((o, i) => ({x:Math.max(pr[i], 1), y:o}));
+  const lim = [100, Math.max(...D.sc.o) * 1.2];
+  const o = base({interaction:{mode:'nearest', intersect:true}});
+  const lg = {type:'logarithmic', min:30, max:lim[1], ticks:{color:css('--muted'), font:{family:'IBM Plex Mono', size:11}, callback:v => [100,1e3,1e4,1e5,1e6].includes(v) ? fmt(v) : null}, grid:{color:css('--line')}, border:{display:false}};
+  o.scales = {x:{...lg, title:{display:true, text:'VIIRS prédit depuis MODIS', color:css('--muted')}}, y:{...lg, min:100, title:{display:true, text:'VIIRS observé', color:css('--muted')}}};
+  o.plugins.tooltip.callbacks.label = c => `prédit ${fmt(c.parsed.x)} · observé ${fmt(c.parsed.y)}`;
+  const diag = {id:'diag', beforeDatasetsDraw(c) { const {ctx, chartArea:a, scales:{x, y}} = c; ctx.save(); ctx.beginPath(); ctx.rect(a.left, a.top, a.right - a.left, a.bottom - a.top); ctx.clip(); ctx.strokeStyle = css('--fg'); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x.getPixelForValue(30), y.getPixelForValue(30)); ctx.lineTo(x.getPixelForValue(lim[1]), y.getPixelForValue(lim[1])); ctx.stroke(); ctx.restore(); }};
+  const c = css(col); const rgba = c.startsWith('#') ? c + '40' : c;
+  sChart = new Chart($('scatter'), {type:'scatter', data:{datasets:[{label:'pays-mois', data:pts, pointRadius:1.8, pointHoverRadius:4, backgroundColor:rgba, borderWidth:0}]}, options:o, plugins:[diag]});
+  const h = smode === 'h' ? H.country_month : B.country_month;
+  $('sc-cap').textContent = `${fmt(D.sc.o.length)} pays-mois avec au moins 100 hotspots VIIRS. Diagonale : prédiction parfaite. Erreur médiane ${pct(h.median_abs_error_pct)}.`;
+}
+for (const [id, m] of [['sc-h','h'], ['sc-b','b']]) $(id).onclick = () => { smode = m; $('sc-h').setAttribute('aria-pressed', m === 'h'); $('sc-b').setAttribute('aria-pressed', m === 'b'); drawScatter(); };
+
+// annual per country
+const CN = {Brazil:'Brésil', Argentina:'Argentine', Australia:'Australie', Russian_Federation:'Russie', Canada:'Canada', Indonesia:'Indonésie', India:'Inde', United_States:'États-Unis'};
+$('country').innerHTML = Object.keys(D.annual).map(k => `<option value="${k}"${k === 'Argentina' ? ' selected' : ''}>${CN[k] || k}</option>`).join('');
+let aChart;
+function drawAnnual() {
+  aChart && aChart.destroy(); const a = D.annual[$('country').value];
+  const o = base(); o.plugins.bands = {ranges:[[a.y.indexOf(2013), a.y.indexOf(2019), '--band-cal'], [a.y.indexOf(2020), a.y.indexOf(2025), '--band-test']]};
+  aChart = new Chart($('annual'), {type:'line', data:{labels:a.y.map(String), datasets:[
+    line('Harmonisé', a.h, '--harm', 2.4, {pointRadius:2}), line('VIIRS S-NPP brut', a.viirs.map(v => v || null), '--viirs', 1.5), line('MODIS brut', a.modis, '--modis', 1.5)]}, options:o});
+}
+$('country').onchange = drawAnnual;
+
+let mfc, cfc;
+function drawAll() { drawWorld(); mfc && mfc.destroy(); cfc && cfc.destroy(); mfc = drawMF(); cfc = drawCF(); drawScatter(); drawAnnual(); }
+drawAll();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawAll);
+new MutationObserver(drawAll).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+</script>

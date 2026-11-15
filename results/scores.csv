@@ -1,0 +1,25 @@
+method,predictor,test,level,n,median_abs_error_pct,weighted_abs_error_pct,bias_pct
+hierarchical-shrinkage,modis,2020-2025,world_month,72,4.0,4.4,-4.0
+hierarchical-shrinkage,modis,2020-2025,country_month,7461,14.2,8.5,-4.0
+hierarchical-shrinkage,modis,2020-2025,country_year,1010,9.0,5.6,-4.0
+hierarchical-shrinkage,modis,2020-2025,cell_month,116184,18.2,16.7,-4.1
+hierarchical-shrinkage,terra,2020-2025,world_month,72,11.7,13.9,-13.2
+hierarchical-shrinkage,terra,2020-2025,country_month,7496,24.8,19.9,-13.2
+hierarchical-shrinkage,terra,2020-2025,country_year,1012,17.9,16.8,-13.2
+hierarchical-shrinkage,terra,2020-2025,cell_month,117311,34.7,32.5,-13.9
+hierarchical-shrinkage,aqua,2020-2025,world_month,72,2.3,3.1,-1.2
+hierarchical-shrinkage,aqua,2020-2025,country_month,7466,15.7,8.9,-1.2
+hierarchical-shrinkage,aqua,2020-2025,country_year,1011,8.9,5.3,-1.2
+hierarchical-shrinkage,aqua,2020-2025,cell_month,116684,21.0,19.0,-1.2
+hierarchical-shrinkage,n20,2022-2025,world_month,48,0.9,1.0,0.5
+hierarchical-shrinkage,n20,2022-2025,country_month,4940,6.4,3.2,0.5
+hierarchical-shrinkage,n20,2022-2025,country_year,675,3.2,1.5,0.5
+hierarchical-shrinkage,n20,2022-2025,cell_month,77780,9.6,8.9,0.1
+hierarchical-shrinkage,modis,2012 (junction),world_month,11,1.1,2.1,1.9
+hierarchical-shrinkage,modis,2012 (junction),country_month,1171,11.3,5.9,1.9
+hierarchical-shrinkage,modis,2012 (junction),country_year,171,6.8,3.5,1.9
+hierarchical-shrinkage,modis,2012 (junction),cell_month,20391,16.2,15.1,1.8
+single-world-ratio (baseline),modis,2020-2025,world_month,72,8.2,7.9,-4.4
+single-world-ratio (baseline),modis,2020-2025,country_month,7461,26.6,17.7,-4.4
+single-world-ratio (baseline),modis,2020-2025,country_year,1010,21.0,14.5,-4.4
+single-world-ratio (baseline),modis,2020-2025,cell_month,116184,27.6,24.8,-5.2
