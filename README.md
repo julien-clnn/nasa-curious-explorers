@@ -36,6 +36,20 @@ Our answer: convert every year into a single unit, **VIIRS-equivalent hotspots**
 - **86 satellite outages** detected from the data itself, excluded from fitting and bridged with the next best satellite.
 - **548 M detections**, worldwide, every day — explore any country, any day, down to the exact hotspot on the globe.
 
+## Screenshots
+
+<p align="center">
+  <a href="https://mediumvioletred-clam-174375.hostingersite.com"><img src="docs/screenshots/trends.png" alt="World view: anomaly globe and 25-year monthly series in one unit" width="900"></a>
+  <br><sub>World, 2025, "vs usual": every area compared with its own usual year, and 25 years of monthly activity in one unit (MODIS converted, then VIIRS observed).</sub>
+</p>
+
+<table>
+  <tr>
+    <td width="45%" align="center"><img src="docs/screenshots/globe.png" alt="Anomaly globe with satellite tracks"><br><sub>The globe, with the MODIS and VIIRS satellites that produced the data.</sub></td>
+    <td width="55%" align="center"><img src="docs/screenshots/calendar.png" alt="Brazil fire activity calendar 2000–2025"><br><sub>Brazil's fire-activity calendar, 2000 → 2025, one cell per month — no break at the 2012 MODIS → VIIRS seam.</sub></td>
+  </tr>
+</table>
+
 ## What we built
 
 | Area | Details |
