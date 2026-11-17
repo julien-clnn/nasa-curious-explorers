@@ -50,6 +50,29 @@ Our answer: convert every year into a single unit, **VIIRS-equivalent hotspots**
   </tr>
 </table>
 
+## Pitch deck
+
+<p align="center">
+  <a href="docs/submission/pitch-deck-en.pdf"><img src="docs/submission/slides/slide-1.png" alt="Pitch deck, slide 1: Harmonizing MODIS and VIIRS hotspots" width="900"></a>
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><a href="docs/submission/pitch-deck-en.pdf"><img src="docs/submission/slides/slide-2.png" alt="Pitch deck, slide 2"></a></td>
+    <td width="50%"><a href="docs/submission/pitch-deck-en.pdf"><img src="docs/submission/slides/slide-3.png" alt="Pitch deck, slide 3"></a></td>
+  </tr>
+  <tr>
+    <td><a href="docs/submission/pitch-deck-en.pdf"><img src="docs/submission/slides/slide-4.png" alt="Pitch deck, slide 4: hierarchical conversion factor"></a></td>
+    <td><a href="docs/submission/pitch-deck-en.pdf"><img src="docs/submission/slides/slide-5.png" alt="Pitch deck, slide 5"></a></td>
+  </tr>
+  <tr>
+    <td><a href="docs/submission/pitch-deck-en.pdf"><img src="docs/submission/slides/slide-6.png" alt="Pitch deck, slide 6"></a></td>
+    <td><a href="docs/submission/pitch-deck-en.pdf"><img src="docs/submission/slides/slide-7.png" alt="Pitch deck, slide 7"></a></td>
+  </tr>
+</table>
+
+<p align="center"><sub>7 slides · <a href="docs/submission/pitch-deck-en.pdf">open the PDF</a></sub></p>
+
 ## What we built
 
 | Area | Details |
